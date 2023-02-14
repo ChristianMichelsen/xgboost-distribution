@@ -55,10 +55,10 @@ class Normal(BaseDistribution):
     def params(self):
         return ("loc", "scale")
 
-    def gradient_and_hessian(self, y, params, natural_gradient=True):
+    def gradient_and_hessian(self, y, transformed_params, natural_gradient=True):
         """Gradient and diagonal hessian"""
 
-        loc, log_scale = self._split_params(params)
+        loc, log_scale = self._split_params(transformed_params)
         var = np.exp(2 * log_scale)
 
         grad = np.zeros(shape=(len(y), 2))
