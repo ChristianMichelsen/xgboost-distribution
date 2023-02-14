@@ -7,24 +7,6 @@ from sklearn.model_selection import train_test_split
 from xgboost_distribution import XGBDistribution
 
 
-def plot_residuals(y_true, y_pred, y_err):
-    fig, ax = plt.subplots()
-    ax.errorbar(
-        y_true,
-        y_true - y_pred,
-        yerr=y_err,
-        marker="o",
-        linestyle="None",
-        c="k",
-        markersize=2.5,
-        linewidth=0.5,
-    )
-    ax.axhline(0, c="k", linestyle="--")
-    ax.set_xlabel("y_test")
-    ax.set_ylabel("y_test - y_pred")
-    plt.show()
-
-
 def main():
     data = fetch_california_housing()
     X, y = data.data, data.target
@@ -34,17 +16,18 @@ def main():
         distribution="normal",
         natural_gradient=True,
         max_depth=2,
-        n_estimators=500,
         early_stopping_rounds=10,
     )
-    model.fit(
+
+    history = model.cv(
         X_train,
         y_train,
-        eval_set=[(X_test, y_test)],
-        verbose=False,
+        {"eta": 0.1, "subsample": 0.5, "colsample_bytree": 0.5, "seed": 0},
+        num_boost_round=500,
+        nfold=5,
+        verbose_eval=50,
     )
-    preds = model.predict(X_test)
-    plot_residuals(y_true=y_test, y_pred=preds.loc, y_err=preds.scale)
+    print(history)
 
 
 if __name__ == "__main__":

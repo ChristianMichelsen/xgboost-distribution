@@ -1,9 +1,20 @@
 """XGBDistribution model
 """
 import os
-from typing import Any, Callable, List, Optional, Tuple, Union, no_type_check
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+    no_type_check,
+)
 
 import numpy as np
+import xgboost as xgb
 from sklearn.base import RegressorMixin
 from sklearn.utils.validation import check_is_fitted
 from xgboost import config_context
@@ -11,7 +22,6 @@ from xgboost._typing import ArrayLike
 from xgboost.callback import TrainingCallback
 from xgboost.core import Booster, DMatrix, _deprecate_positional_args
 from xgboost.sklearn import XGBModel, _wrap_evaluation_matrices, xgboost_model_doc
-from xgboost.training import train
 
 from xgboost_distribution.distributions import get_distribution, get_distribution_doc
 
@@ -151,7 +161,7 @@ class XGBDistribution(XGBModel, RegressorMixin):
 
         # Suppress warnings from unexpected distribution & natural_gradient params
         with config_context(verbosity=0):
-            self._Booster = train(
+            self._Booster = xgb.train(
                 params,
                 train_dmatrix,
                 num_boost_round=self.get_num_boosting_rounds(),
@@ -299,6 +309,106 @@ class XGBDistribution(XGBModel, RegressorMixin):
             quantiles=quantiles,
             string_decimals=string_decimals,
         )
+
+    @_deprecate_positional_args
+    def cv(
+        self,
+        X: ArrayLike,
+        y: ArrayLike,
+        params: Dict[str, Any] = {},
+        num_boost_round: int = 10,
+        *,
+        nfold: int = 3,
+        stratified: bool = False,
+        folds: xgb.compat.XGBStratifiedKFold = None,
+        metrics: Sequence[str] = (),
+        feval: Optional[xgb.core.Metric] = None,
+        maximize: Optional[bool] = None,
+        early_stopping_rounds: Optional[int] = None,
+        as_pandas: bool = True,
+        show_stdv: bool = True,
+        seed: int = 0,
+        verbose_eval: Optional[bool] = False,
+        shuffle: bool = True,
+        callbacks: Optional[List[TrainingCallback]] = None,
+        sample_weight: Optional[ArrayLike] = None,
+        feature_weights: Optional[ArrayLike] = None,
+    ) -> Union[Dict[str, float], xgb.compat.DataFrame]:
+        """Cross-validation with given parameters. Similar to xgb.cv."""
+        self._distribution = get_distribution(self.distribution)
+        self._distribution.check_target(y)
+
+        params = {**self.get_xgb_params(), **params}
+        params["objective"] = None
+        params["disable_default_eval_metric"] = True
+        params["num_class"] = len(self._distribution.params)
+
+        # we set `base_score` to zero and instead use base_margin in dmatrices
+        # -> this allows different starting values for each distribution parameter
+        params["base_score"] = 0.0
+        self._starting_params = self._distribution.starting_params(y)
+
+        base_margin = self._get_base_margin(len(y))
+
+        train_dmatrix, _ = _wrap_evaluation_matrices(
+            missing=self.missing,
+            X=X,
+            y=y,
+            group=None,
+            qid=None,
+            sample_weight=sample_weight,
+            base_margin=base_margin,
+            feature_weights=feature_weights,
+            eval_set=None,
+            sample_weight_eval_set=None,
+            base_margin_eval_set=None,
+            eval_group=None,
+            eval_qid=None,
+            create_dmatrix=self._create_dmatrix,
+            enable_categorical=self.enable_categorical,
+            feature_types=self.feature_types,
+        )
+
+        evals_result: TrainingCallback.EvalsLog = {}
+
+        _, _, params, early_stopping_rounds, callbacks = self._configure_fit(
+            booster=None,
+            eval_metric=None,
+            params=params,
+            early_stopping_rounds=early_stopping_rounds,
+            callbacks=callbacks,
+        )
+
+        if num_boost_round is None:
+            num_boost_round = self.get_num_boosting_rounds()
+
+        if early_stopping_rounds is None:
+            early_stopping_rounds = self.early_stopping_rounds
+
+        # Suppress warnings from unexpected distribution & natural_gradient params
+        with config_context(verbosity=0):
+            history = xgb.cv(
+                params,
+                train_dmatrix,
+                num_boost_round=num_boost_round,
+                early_stopping_rounds=early_stopping_rounds,
+                nfold=nfold,
+                folds=folds,
+                stratified=stratified,
+                as_pandas=as_pandas,
+                shuffle=shuffle,
+                seed=seed,
+                maximize=maximize,
+                metrics=metrics,
+                feval=feval,
+                show_stdv=show_stdv,
+                obj=self._objective_func(),
+                custom_metric=self._evaluation_func(),
+                verbose_eval=verbose_eval,
+                callbacks=callbacks,
+            )
+
+        return history
 
     def save_model(self, fname: Union[str, os.PathLike]) -> None:
         # self._distribution class cannot be saved by `super().save_model`, as it
