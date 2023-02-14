@@ -13,7 +13,7 @@ def negative_binomial():
 
 
 @pytest.mark.parametrize(
-    "y, params, natural_gradient, expected_grad",
+    "y, transformed_params, natural_gradient, expected_grad",
     [
         (
             np.array([1]),
@@ -24,10 +24,16 @@ def negative_binomial():
     ],
 )
 def test_gradient_calculation(
-    negative_binomial, y, params, natural_gradient, expected_grad
+    negative_binomial,
+    y,
+    transformed_params,
+    natural_gradient,
+    expected_grad,
 ):
     grad, _ = negative_binomial.gradient_and_hessian(
-        y, params, natural_gradient=natural_gradient
+        y,
+        transformed_params,
+        natural_gradient=natural_gradient,
     )
     np.testing.assert_array_equal(grad, expected_grad)
 

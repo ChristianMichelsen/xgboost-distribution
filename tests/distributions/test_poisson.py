@@ -26,7 +26,7 @@ def test_target_validation_raises(poisson, invalid_target):
 
 
 @pytest.mark.parametrize(
-    "y, params, natural_gradient, expected_grad",
+    "y, transformed_params, natural_gradient, expected_grad",
     [
         (
             np.array([1, 1]),
@@ -42,8 +42,12 @@ def test_target_validation_raises(poisson, invalid_target):
         ),
     ],
 )
-def test_gradient_calculation(poisson, y, params, natural_gradient, expected_grad):
-    grad, _ = poisson.gradient_and_hessian(y, params, natural_gradient=natural_gradient)
+def test_gradient_calculation(
+    poisson, y, transformed_params, natural_gradient, expected_grad
+):
+    grad, _ = poisson.gradient_and_hessian(
+        y, transformed_params, natural_gradient=natural_gradient
+    )
     np.testing.assert_array_equal(grad, expected_grad)
 
 
@@ -51,7 +55,7 @@ def test_loss(poisson):
     loss_name, loss_values = poisson.loss(
         # fmt: off
         y=np.array([1, ]),
-        params=np.array([np.log(1), ]),
+        transformed_params=np.array([np.log(1), ]),
     )
     assert loss_name == "Poisson-NLL"
     np.testing.assert_array_equal(loss_values, np.array([1.0]))

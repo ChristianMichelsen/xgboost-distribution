@@ -26,7 +26,7 @@ def test_target_validation_raises(lognormal, invalid_target):
 
 
 @pytest.mark.parametrize(
-    "y, params, natural_gradient, expected_grad",
+    "y, transformed_params, natural_gradient, expected_grad",
     [
         (
             np.array([1, 1]),
@@ -42,9 +42,17 @@ def test_target_validation_raises(lognormal, invalid_target):
         ),
     ],
 )
-def test_gradient_calculation(lognormal, y, params, natural_gradient, expected_grad):
+def test_gradient_calculation(
+    lognormal,
+    y,
+    transformed_params,
+    natural_gradient,
+    expected_grad,
+):
     grad, hess = lognormal.gradient_and_hessian(
-        y, params, natural_gradient=natural_gradient
+        y,
+        transformed_params,
+        natural_gradient=natural_gradient,
     )
     np.testing.assert_array_equal(grad, expected_grad)
 
@@ -53,7 +61,7 @@ def test_loss(lognormal):
     loss_name, loss_values = lognormal.loss(
         # fmt: off
         y=np.array([0, ]),
-        params=np.array([[1, 0], ]),
+        transformed_params=np.array([[1, 0], ]),
     )
     assert loss_name == "LogNormal-NLL"
     np.testing.assert_array_equal(loss_values, np.array([np.inf]))

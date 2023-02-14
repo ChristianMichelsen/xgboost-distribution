@@ -252,7 +252,7 @@ class XGBDistribution(XGBModel, RegressorMixin):
             validate_features=validate_features,
             iteration_range=iteration_range,
         )
-        return self._distribution.predict(transformed_params)
+        return self._distribution.predict(transformed_params=transformed_params)
 
     @no_type_check
     def predict_quantiles(
@@ -317,11 +317,13 @@ class XGBDistribution(XGBModel, RegressorMixin):
     def _objective_func(
         self,
     ) -> Callable[[np.ndarray, DMatrix], Tuple[np.ndarray, np.ndarray]]:
-        def obj(params: np.ndarray, data: DMatrix) -> Tuple[np.ndarray, np.ndarray]:
+        def obj(
+            transformed_params: np.ndarray, data: DMatrix
+        ) -> Tuple[np.ndarray, np.ndarray]:
             y = data.get_label()
             grad, hess = self._distribution.gradient_and_hessian(
                 y=y,
-                params=params,
+                transformed_params=transformed_params,
                 natural_gradient=self.natural_gradient,
             )
 
@@ -336,13 +338,16 @@ class XGBDistribution(XGBModel, RegressorMixin):
         return obj
 
     def _evaluation_func(self) -> Callable[[np.ndarray, DMatrix], Tuple[str, float]]:
-        def feval(params: np.ndarray, data: DMatrix) -> Tuple[str, float]:
+        def feval(transformed_params: np.ndarray, data: DMatrix) -> Tuple[str, float]:
             y = data.get_label()
             weights = data.get_weight()
             if weights.size == 0:
                 weights = None
 
-            loss_name, loss = self._distribution.loss(y=y, params=params)
+            loss_name, loss = self._distribution.loss(
+                y=y,
+                transformed_params=transformed_params,
+            )
             return loss_name, np.average(loss, weights=weights)
 
         return feval

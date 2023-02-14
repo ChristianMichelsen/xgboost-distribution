@@ -11,7 +11,7 @@ def normal():
 
 
 @pytest.mark.parametrize(
-    "y, params, natural_gradient, expected_grad",
+    "y, transformed_params, natural_gradient, expected_grad",
     [
         (
             np.array([0, 0]),
@@ -27,6 +27,16 @@ def normal():
         ),
     ],
 )
-def test_gradient_calculation(normal, y, params, natural_gradient, expected_grad):
-    grad, _ = normal.gradient_and_hessian(y, params, natural_gradient=natural_gradient)
+def test_gradient_calculation(
+    normal,
+    y,
+    transformed_params,
+    natural_gradient,
+    expected_grad,
+):
+    grad, _ = normal.gradient_and_hessian(
+        y,
+        transformed_params,
+        natural_gradient=natural_gradient,
+    )
     np.testing.assert_array_equal(grad, expected_grad)
