@@ -1,7 +1,7 @@
 """Minimal example of XGBDistribution on Boston Housing dataset
 """
 from matplotlib import pyplot as plt
-from sklearn.datasets import load_boston
+from sklearn.datasets import fetch_california_housing
 from sklearn.model_selection import train_test_split
 
 from xgboost_distribution import XGBDistribution
@@ -26,7 +26,7 @@ def plot_residuals(y_true, y_pred, y_err):
 
 
 def main():
-    data = load_boston()
+    data = fetch_california_housing()
     X, y = data.data, data.target
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0)
 
@@ -35,12 +35,12 @@ def main():
         natural_gradient=True,
         max_depth=2,
         n_estimators=500,
+        early_stopping_rounds=10,
     )
     model.fit(
         X_train,
         y_train,
         eval_set=[(X_test, y_test)],
-        early_stopping_rounds=10,
         verbose=False,
     )
     preds = model.predict(X_test)

@@ -234,12 +234,16 @@ def ngb_regressor(data):
 
 @evaluate
 def xgb_distribution(data):
-    xgbd = XGBDistribution(max_depth=3, natural_gradient=True, n_estimators=500)
+    xgbd = XGBDistribution(
+        max_depth=3,
+        natural_gradient=True,
+        n_estimators=500,
+        early_stopping_rounds=10,
+    )
     xgbd.fit(
         data.X_train,
         data.y_train,
         eval_set=[(data.X_val, data.y_val)],
-        early_stopping_rounds=10,
         verbose=False,
     )
     return xgbd.predict(data.X_test)
@@ -247,12 +251,15 @@ def xgb_distribution(data):
 
 @evaluate
 def xgb_regressor(data):
-    xgb = XGBRegressor(max_depth=3, n_estimators=500)
+    xgb = XGBRegressor(
+        max_depth=3,
+        n_estimators=500,
+        early_stopping_rounds=10,
+    )
     xgb.fit(
         data.X_train,
         data.y_train,
         eval_set=[(data.X_val, data.y_val)],
-        early_stopping_rounds=10,
         verbose=False,
     )
     return xgb.predict(data.X_test)
@@ -390,7 +397,10 @@ class DataBase:
 def setup_logging(loglevel=logging.INFO):
     logformat = "[%(asctime)s] %(levelname)s:%(name)s:%(message)s"
     logging.basicConfig(
-        level=loglevel, stream=sys.stdout, format=logformat, datefmt="%Y-%m-%d %H:%M:%S"
+        level=loglevel,
+        stream=sys.stdout,
+        format=logformat,
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
 
 
