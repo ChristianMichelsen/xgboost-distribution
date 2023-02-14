@@ -29,13 +29,17 @@ class BaseDistribution(ABC):
         """The starting parameters of the distribution"""
 
     @abstractmethod
-    def gradient_and_hessian(self, y, params, natural_gradient=True):
+    def gradient_and_hessian(self, y, transformed_params, natural_gradient=True):
         """Compute the gradient and hessian of the distribution"""
 
     @abstractmethod
-    def loss(self, y, params):
+    def loss(self, y, transformed_params):
         """Evaluate the per sample loss (typically negative log-likelihood)"""
 
     @abstractmethod
-    def predict(self, params):
+    def predict(self, transformed_params):
+        """Predict the parameters of a given distribution"""
+
+    @abstractmethod
+    def predict_quantiles(self, transformed_params):
         """Predict the parameters of a given distribution"""

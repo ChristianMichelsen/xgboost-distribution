@@ -3,6 +3,7 @@
 import numpy as np
 from scipy.special import digamma, expit
 from scipy.stats import nbinom
+from xgboost.compat import PANDAS_INSTALLED, DataFrame
 
 from xgboost_distribution.distributions.base import BaseDistribution
 from xgboost_distribution.distributions.utils import (
@@ -74,10 +75,11 @@ class NegativeBinomial(BaseDistribution):
         check_all_integer(y)
         check_all_ge_zero(y)
 
-    def gradient_and_hessian(self, y, params, natural_gradient=True):
+    def gradient_and_hessian(self, y, transformed_params, natural_gradient=True):
         """Gradient and diagonal hessian"""
 
-        log_n, raw_p = params[:, 0], params[:, 1]
+        # log_n, raw_p = transformed_params[:, 0], transformed_params[:, 1]
+        log_n, raw_p = transformed_params.T
         n = np.exp(log_n)
         p = expit(raw_p)
 
@@ -87,7 +89,6 @@ class NegativeBinomial(BaseDistribution):
         grad[:, 1] = p * (y - n * (1 - p) / p)
 
         if natural_gradient:
-
             fisher_matrix = np.zeros(shape=(len(y), 2, 2))
             fisher_matrix[:, 0, 0] = (n * p) / (p + 1)
             fisher_matrix[:, 1, 1] = n * p
@@ -103,15 +104,36 @@ class NegativeBinomial(BaseDistribution):
 
         return grad, hess
 
-    def loss(self, y, params):
-        n, p = self.predict(params)
+    def loss(self, y, transformed_params):
+        n, p = self.predict(transformed_params)
         return "NegativeBinomial-NLL", -nbinom.logpmf(y, n=n, p=p)
 
-    def predict(self, params):
-        log_n, raw_p = params[:, 0], params[:, 1]
+    def predict(self, transformed_params):
+        # log_n, raw_p = transformed_params[:, 0], transformed_params[:, 1]
+        log_n, raw_p = transformed_params.T
         n = np.exp(log_n)
         p = expit(raw_p)
         return self.Predictions(n=n, p=p)
+
+    def predict_quantiles(
+        self,
+        transformed_params,
+        quantiles=[0.1, 0.5, 0.9],
+        string_decimals: int = 2,
+        as_pandas=True,
+    ):
+        if isinstance(quantiles, float):
+            quantiles = [quantiles]
+
+        n, p = self.predict(transformed_params)
+        preds = [nbinom(n=n, p=p).ppf(q=q) for q in quantiles]
+
+        if as_pandas and PANDAS_INSTALLED:
+            index = [f"q_{q:.{string_decimals}f}" for q in quantiles]
+            return DataFrame(preds, index=index).T
+
+        else:
+            return np.array(preds)
 
     def starting_params(self, y):
         # TODO: starting params can matter a lot?

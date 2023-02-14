@@ -171,7 +171,7 @@ class XGBDistribution(XGBModel, RegressorMixin):
         return self
 
     @no_type_check
-    def predict(
+    def predict_transformed_params(
         self,
         X: ArrayLike,
         ntree_limit: Optional[int] = None,
@@ -205,7 +205,7 @@ class XGBDistribution(XGBModel, RegressorMixin):
 
         base_margin = self._get_base_margin(X.shape[0])
 
-        params = super().predict(
+        transformed_params = super().predict(
             X=X,
             output_margin=True,
             ntree_limit=ntree_limit,
@@ -213,7 +213,92 @@ class XGBDistribution(XGBModel, RegressorMixin):
             base_margin=base_margin,
             iteration_range=iteration_range,
         )
-        return self._distribution.predict(params)
+        return transformed_params
+
+    @no_type_check
+    def predict(
+        self,
+        X: ArrayLike,
+        ntree_limit: Optional[int] = None,
+        validate_features: bool = True,
+        iteration_range: Optional[Tuple[int, int]] = None,
+    ) -> Tuple[np.ndarray]:
+        """Predict all params of distribution of each `X` example.
+
+        Parameters
+        ----------
+        X : ArrayLike
+            Feature matrix.
+        ntree_limit : int
+            Deprecated, use `iteration_range` instead.
+        validate_features : bool
+            When this is True, validate that the Booster's and data's feature_names are
+            identical.  Otherwise, it is assumed that the feature_names are the same.
+        iteration_range :
+            Specifies which layer of trees are used in prediction.  For example, if a
+            random forest is trained with 100 rounds.  Specifying `iteration_range=(10,
+            20)`, then only the forests built during [10, 20) (half open set) rounds are
+            used in this prediction.
+
+        Returns
+        -------
+        predictions : namedtuple
+            A namedtuple of the distribution parameters. Each parameter is a
+            numpy array of shape (n_samples,).
+        """
+        transformed_params = self.predict_transformed_params(
+            X=X,
+            ntree_limit=ntree_limit,
+            validate_features=validate_features,
+            iteration_range=iteration_range,
+        )
+        return self._distribution.predict(transformed_params)
+
+    @no_type_check
+    def predict_quantiles(
+        self,
+        X: ArrayLike,
+        quantiles: List[float] = [0.1, 0.5, 0.9],
+        string_decimals: int = 2,
+        ntree_limit: Optional[int] = None,
+        validate_features: bool = True,
+        iteration_range: Optional[Tuple[int, int]] = None,
+    ) -> Tuple[np.ndarray]:
+        """Predict all params of distribution of each `X` example.
+
+        Parameters
+        ----------
+        X : ArrayLike
+            Feature matrix.
+        ntree_limit : int
+            Deprecated, use `iteration_range` instead.
+        validate_features : bool
+            When this is True, validate that the Booster's and data's feature_names are
+            identical.  Otherwise, it is assumed that the feature_names are the same.
+        iteration_range :
+            Specifies which layer of trees are used in prediction.  For example, if a
+            random forest is trained with 100 rounds.  Specifying `iteration_range=(10,
+            20)`, then only the forests built during [10, 20) (half open set) rounds are
+            used in this prediction.
+
+        Returns
+        -------
+        predictions : namedtuple
+            A namedtuple of the distribution parameters. Each parameter is a
+            numpy array of shape (n_samples,).
+        """
+
+        transformed_params = self.predict_transformed_params(
+            X=X,
+            ntree_limit=ntree_limit,
+            validate_features=validate_features,
+            iteration_range=iteration_range,
+        )
+        return self._distribution.predict_quantiles(
+            transformed_params=transformed_params,
+            quantiles=quantiles,
+            string_decimals=string_decimals,
+        )
 
     def save_model(self, fname: Union[str, os.PathLike]) -> None:
         # self._distribution class cannot be saved by `super().save_model`, as it
@@ -235,7 +320,9 @@ class XGBDistribution(XGBModel, RegressorMixin):
         def obj(params: np.ndarray, data: DMatrix) -> Tuple[np.ndarray, np.ndarray]:
             y = data.get_label()
             grad, hess = self._distribution.gradient_and_hessian(
-                y=y, params=params, natural_gradient=self.natural_gradient
+                y=y,
+                params=params,
+                natural_gradient=self.natural_gradient,
             )
 
             weights = data.get_weight()

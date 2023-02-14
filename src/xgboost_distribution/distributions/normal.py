@@ -2,6 +2,7 @@
 """
 import numpy as np
 from scipy.stats import norm
+from xgboost.compat import PANDAS_INSTALLED, DataFrame
 
 from xgboost_distribution.distributions.base import BaseDistribution
 
@@ -79,17 +80,37 @@ class Normal(BaseDistribution):
 
         return grad, hess
 
-    def loss(self, y, params):
-        loc, scale = self.predict(params)
+    def loss(self, y, transformed_params):
+        loc, scale = self.predict(transformed_params)
         return "NormalDistribution-NLL", -norm.logpdf(y, loc=loc, scale=scale)
 
-    def predict(self, params):
-        loc, log_scale = self._split_params(params)
+    def predict(self, transformed_params):
+        loc, log_scale = self._split_params(transformed_params)
         # TODO: do we need clipping for safety?
         # log_scale = np.clip(log_scale, -100, 100)
         scale = np.exp(log_scale)
 
         return self.Predictions(loc=loc, scale=scale)
+
+    def predict_quantiles(
+        self,
+        transformed_params,
+        quantiles=[0.1, 0.5, 0.9],
+        string_decimals: int = 2,
+        as_pandas=True,
+    ):
+        if isinstance(quantiles, float):
+            quantiles = [quantiles]
+
+        loc, scale = self.predict(transformed_params)
+        preds = [norm(loc=loc, scale=scale).ppf(q=q) for q in quantiles]
+
+        if as_pandas and PANDAS_INSTALLED:
+            index = [f"q_{q:.{string_decimals}f}" for q in quantiles]
+            return DataFrame(preds, index=index).T
+
+        else:
+            return np.array(preds)
 
     def starting_params(self, y):
         return np.mean(y), np.log(np.std(y))

@@ -2,6 +2,7 @@
 """
 import numpy as np
 from scipy.stats import lognorm
+from xgboost.compat import PANDAS_INSTALLED, DataFrame
 
 from xgboost_distribution.distributions.base import BaseDistribution
 from xgboost_distribution.distributions.utils import check_all_gt_zero
@@ -43,12 +44,12 @@ class LogNormal(BaseDistribution):
     def check_target(self, y):
         check_all_gt_zero(y)
 
-    def gradient_and_hessian(self, y, params, natural_gradient=True):
+    def gradient_and_hessian(self, y, transformed_params, natural_gradient=True):
         """Gradient and diagonal hessian"""
 
         log_y = np.log(y)
 
-        loc, log_s = self._split_params(params)  # note loc = log(scale)
+        loc, log_s = self._split_params(transformed_params)  # note loc = log(scale)
         var = np.exp(2 * log_s)
 
         grad = np.zeros(shape=(len(y), 2))
@@ -70,15 +71,35 @@ class LogNormal(BaseDistribution):
 
         return grad, hess
 
-    def loss(self, y, params):
-        scale, s = self.predict(params)
+    def loss(self, y, transformed_params):
+        scale, s = self.predict(transformed_params)
         return "LogNormal-NLL", -lognorm.logpdf(y, s=s, scale=scale)
 
-    def predict(self, params):
-        log_scale, log_s = self._split_params(params)
+    def predict(self, transformed_params):
+        log_scale, log_s = self._split_params(transformed_params)
         scale, s = np.exp(log_scale), np.exp(log_s)
 
         return self.Predictions(scale=scale, s=s)
+
+    def predict_quantiles(
+        self,
+        transformed_params,
+        quantiles=[0.1, 0.5, 0.9],
+        string_decimals: int = 2,
+        as_pandas=True,
+    ):
+        if isinstance(quantiles, float):
+            quantiles = [quantiles]
+
+        scale, s = self.predict(transformed_params)
+        preds = [lognorm(s=s, scale=scale).ppf(q=q) for q in quantiles]
+
+        if as_pandas and PANDAS_INSTALLED:
+            index = [f"q_{q:.{string_decimals}f}" for q in quantiles]
+            return DataFrame(preds, index=index).T
+
+        else:
+            return np.array(preds)
 
     def starting_params(self, y):
         log_y = np.log(y)
