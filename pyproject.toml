@@ -3,7 +3,7 @@ name = "xgboost-distribution"
 version = "0.1.0"
 description = ""
 authors = ["Christian Michelsen <christianmichelsen@gmail.com>"]
-readme = "README.rst"
+readme = "README.md"
 packages = [{include = "xgboost_distribution", from = "src" }]
 
 [tool.poetry.dependencies]
