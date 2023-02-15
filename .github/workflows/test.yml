@@ -1,9 +1,6 @@
 name: Tests
 
-on:
-  push:
-  schedule:
-    - cron: "0 15 * * 5"
+on: push
 
 jobs:
   test:
@@ -13,23 +10,30 @@ jobs:
         python-version: ["3.8", "3.9", "3.10"]
 
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        python -m pip install .[testing]
-    - name: Test with pytest
-      run: |
-        python -m pytest
-    - name: Coverage with coveralls
-      run: |
-        python -m pip install coveralls
-        python -m coveralls
-      env:
-          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+      - id: cache-dependencies
+        name: Cache dependencies
+        uses: actions/cache@v2.1.7
+        with:
+          path: ${{ github.workspace }}/.venv
+          key: dependencies-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: dependencies-
+
+      - name: Install dependencies
+        if: steps.cache-dependencies.cache-hit != 'true'
+        run: |
+          python -m pip install -U pip poetry
+          poetry --version
+          poetry check --no-interaction
+          poetry config virtualenvs.in-project true
+          poetry install --no-interaction
+
+      - name: Test with pytest
+        run: |
+          poetry run pytest -v
