@@ -4,14 +4,10 @@ import numpy as np
 from scipy.stats import poisson
 from xgboost.compat import PANDAS_INSTALLED, DataFrame
 
-from xgboost_distribution.distributions.base import BaseDistribution
-from xgboost_distribution.distributions.utils import (
-    check_all_ge_zero,
-    check_all_integer,
-)
+from xgboost_distribution.distributions import base, utils
 
 
-class Poisson(BaseDistribution):
+class Poisson(base.BaseDistribution):
     """Poisson distribution with log score
 
     Definition:
@@ -36,8 +32,8 @@ class Poisson(BaseDistribution):
         return ("mu",)
 
     def check_target(self, y):
-        check_all_integer(y)
-        check_all_ge_zero(y)
+        utils.check_all_integer(y)
+        utils.check_all_ge_zero(y)
 
     def gradient_and_hessian(self, y, transformed_params, natural_gradient=True):
         """Gradient and diagonal hessian"""
@@ -78,7 +74,7 @@ class Poisson(BaseDistribution):
         if isinstance(quantiles, float):
             quantiles = [quantiles]
 
-        mu = self.predict(transformed_params)
+        (mu,) = self.predict(transformed_params).mu
         preds = [poisson(mu=mu).ppf(q=q) for q in quantiles]
 
         if as_pandas and PANDAS_INSTALLED:
