@@ -369,15 +369,13 @@ class XGBDistribution(XGBModel, RegressorMixin):
             feature_types=self.feature_types,
         )
 
-        evals_result: TrainingCallback.EvalsLog = {}
-
-        _, _, params, early_stopping_rounds, callbacks = self._configure_fit(
-            booster=None,
-            eval_metric=None,
-            params=params,
-            early_stopping_rounds=early_stopping_rounds,
-            callbacks=callbacks,
-        )
+        # _, _, params, early_stopping_rounds, _ = self._configure_fit(
+        #     booster=None,
+        #     eval_metric=None,
+        #     params=params,
+        #     early_stopping_rounds=early_stopping_rounds,
+        #     callbacks=None,
+        # )
 
         if num_boost_round is None:
             num_boost_round = self.get_num_boosting_rounds()
