@@ -270,6 +270,7 @@ class XGBDistribution(XGBModel, RegressorMixin):
         X: ArrayLike,
         quantiles: List[float] = [0.1, 0.5, 0.9],
         string_decimals: int = 2,
+        as_pandas: bool = True,
         ntree_limit: Optional[int] = None,
         validate_features: bool = True,
         iteration_range: Optional[Tuple[int, int]] = None,
@@ -308,6 +309,7 @@ class XGBDistribution(XGBModel, RegressorMixin):
             transformed_params=transformed_params,
             quantiles=quantiles,
             string_decimals=string_decimals,
+            as_pandas=as_pandas,
         )
 
     @_deprecate_positional_args
