@@ -5,7 +5,10 @@ from scipy.stats import lognorm
 from xgboost.compat import PANDAS_INSTALLED, DataFrame
 
 from xgboost_distribution.distributions.base import BaseDistribution
-from xgboost_distribution.distributions.utils import check_all_gt_zero
+from xgboost_distribution.distributions.utils import (
+    check_all_gt_zero,
+    stabilize_derivative,
+)
 
 
 class LogNormal(BaseDistribution):
@@ -44,7 +47,13 @@ class LogNormal(BaseDistribution):
     def check_target(self, y):
         check_all_gt_zero(y)
 
-    def gradient_and_hessian(self, y, transformed_params, natural_gradient=True):
+    def gradient_and_hessian(
+        self,
+        y,
+        transformed_params,
+        natural_gradient=True,
+        gradient_method="None",
+    ):
         """Gradient and diagonal hessian"""
 
         log_y = np.log(y)
@@ -62,6 +71,7 @@ class LogNormal(BaseDistribution):
             fisher_matrix[:, 1, 1] = 2
 
             grad = np.linalg.solve(fisher_matrix, grad)
+            grad = stabilize_derivative(gradient=grad, method=gradient_method)
 
             hess = np.ones(shape=(len(y), 2))  # we set the hessian constant
         else:
@@ -104,6 +114,10 @@ class LogNormal(BaseDistribution):
     def starting_params(self, y):
         log_y = np.log(y)
         return np.mean(log_y), np.log(np.std(log_y))
+
+    def _split_params(self, params):
+        """Return log_scale (loc) and log_s from params"""
+        return params[:, 0], params[:, 1]
 
     def _split_params(self, params):
         """Return log_scale (loc) and log_s from params"""

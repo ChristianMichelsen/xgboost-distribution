@@ -5,7 +5,10 @@ from scipy.stats import expon
 from xgboost.compat import PANDAS_INSTALLED, DataFrame
 
 from xgboost_distribution.distributions.base import BaseDistribution
-from xgboost_distribution.distributions.utils import check_all_ge_zero
+from xgboost_distribution.distributions.utils import (
+    check_all_ge_zero,
+    stabilize_derivative,
+)
 
 
 class Exponential(BaseDistribution):
@@ -36,7 +39,13 @@ class Exponential(BaseDistribution):
     def check_target(self, y):
         check_all_ge_zero(y)
 
-    def gradient_and_hessian(self, y, transformed_params, natural_gradient=True):
+    def gradient_and_hessian(
+        self,
+        y,
+        transformed_params,
+        natural_gradient=True,
+        gradient_method="None",
+    ):
         """Gradient and diagonal hessian"""
 
         (scale,) = self.predict(transformed_params)
@@ -48,6 +57,7 @@ class Exponential(BaseDistribution):
             fisher_matrix = np.ones(shape=(len(y), 1, 1))
 
             grad = np.linalg.solve(fisher_matrix, grad)
+            grad = stabilize_derivative(gradient=grad, method=gradient_method)
             hess = np.ones(shape=(len(y), 1))  # we set the hessian constant
         else:
             hess = -(grad - 1)
@@ -82,6 +92,9 @@ class Exponential(BaseDistribution):
 
         else:
             return np.array(preds)
+
+    def starting_params(self, y):
+        return (np.log(np.mean(y)),)
 
     def starting_params(self, y):
         return (np.log(np.mean(y)),)

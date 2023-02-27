@@ -5,6 +5,7 @@ from scipy.stats import cauchy, laplace
 from xgboost.compat import PANDAS_INSTALLED, DataFrame
 
 from xgboost_distribution.distributions.base import BaseDistribution
+from xgboost_distribution.distributions.utils import stabilize_derivative
 
 
 class Laplace(BaseDistribution):
@@ -56,7 +57,13 @@ class Laplace(BaseDistribution):
     def params(self):
         return ("loc", "scale")
 
-    def gradient_and_hessian(self, y, transformed_params, natural_gradient=True):
+    def gradient_and_hessian(
+        self,
+        y,
+        transformed_params,
+        natural_gradient=True,
+        gradient_method="None",
+    ):
         """Gradient and diagonal hessian"""
 
         loc, log_scale = self._split_params(transformed_params)
@@ -72,6 +79,7 @@ class Laplace(BaseDistribution):
             fisher_matrix[:, 1, 1] = 1
 
             grad = np.linalg.solve(fisher_matrix, grad)
+            grad = stabilize_derivative(gradient=grad, method=gradient_method)
             hess = np.ones(shape=(len(y), 2))  # we set the hessian constant
         else:
             hess = np.zeros(shape=(len(y), 2))  # diagonal elements only
@@ -115,4 +123,5 @@ class Laplace(BaseDistribution):
 
     def _split_params(self, params):
         """Return loc and log_scale from params"""
+        return params[:, 0], params[:, 1]
         return params[:, 0], params[:, 1]

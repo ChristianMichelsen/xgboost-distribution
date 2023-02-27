@@ -29,7 +29,13 @@ class BaseDistribution(ABC):
         """The starting parameters of the distribution"""
 
     @abstractmethod
-    def gradient_and_hessian(self, y, transformed_params, natural_gradient=True):
+    def gradient_and_hessian(
+        self,
+        y,
+        transformed_params,
+        natural_gradient=True,
+        gradient_method="None",
+    ):
         """Compute the gradient and hessian of the distribution"""
 
     @abstractmethod

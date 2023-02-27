@@ -35,7 +35,13 @@ class Poisson(base.BaseDistribution):
         utils.check_all_integer(y)
         utils.check_all_ge_zero(y)
 
-    def gradient_and_hessian(self, y, transformed_params, natural_gradient=True):
+    def gradient_and_hessian(
+        self,
+        y,
+        transformed_params,
+        natural_gradient=True,
+        gradient_method="None",
+    ):
         """Gradient and diagonal hessian"""
 
         (mu,) = self.predict(transformed_params)
@@ -48,6 +54,7 @@ class Poisson(base.BaseDistribution):
             fisher_matrix[:, 0, 0] = mu
 
             grad = np.linalg.solve(fisher_matrix, grad)
+            grad = utils.stabilize_derivative(gradient=grad, method=gradient_method)
 
             hess = np.ones(shape=(len(y), 1))  # we set the hessian constant
         else:
