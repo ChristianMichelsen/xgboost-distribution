@@ -9,6 +9,7 @@ from xgboost_distribution.distributions.base import BaseDistribution
 from xgboost_distribution.distributions.utils import (
     check_all_ge_zero,
     check_all_integer,
+    stabilize_derivative,
 )
 
 
@@ -75,7 +76,13 @@ class NegativeBinomial(BaseDistribution):
         check_all_integer(y)
         check_all_ge_zero(y)
 
-    def gradient_and_hessian(self, y, transformed_params, natural_gradient=True):
+    def gradient_and_hessian(
+        self,
+        y,
+        transformed_params,
+        natural_gradient=True,
+        gradient_method="None",
+    ):
         """Gradient and diagonal hessian"""
 
         # log_n, raw_p = transformed_params[:, 0], transformed_params[:, 1]
@@ -94,6 +101,7 @@ class NegativeBinomial(BaseDistribution):
             fisher_matrix[:, 1, 1] = n * p
 
             grad = np.linalg.solve(fisher_matrix, grad)
+            grad = stabilize_derivative(gradient=grad, method=gradient_method)
             hess = np.ones(shape=(len(y), 2))  # we set the hessian constant
 
         else:

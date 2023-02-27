@@ -39,13 +39,15 @@ class XGBDistribution(XGBModel, RegressorMixin):
     def __init__(
         self,
         *,
-        distribution: str = None,
+        distribution: Optional[str] = None,
         natural_gradient: bool = True,
-        objective: str = None,
+        objective: Optional[str] = None,
+        gradient_method: str = "None",
         **kwargs: Any,
     ) -> None:
         self.distribution = distribution or "normal"
         self.natural_gradient = natural_gradient
+        self.gradient_method = gradient_method
 
         if objective is not None:
             raise ValueError(
@@ -337,6 +339,7 @@ class XGBDistribution(XGBModel, RegressorMixin):
         feature_weights: Optional[ArrayLike] = None,
     ) -> Union[Dict[str, float], xgb.compat.DataFrame]:
         """Cross-validation with given parameters. Similar to xgb.cv."""
+
         self._distribution = get_distribution(self.distribution)
         self._distribution.check_target(y)
 
@@ -435,6 +438,7 @@ class XGBDistribution(XGBModel, RegressorMixin):
                 y=y,
                 transformed_params=transformed_params,
                 natural_gradient=self.natural_gradient,
+                gradient_method=self.gradient_method,
             )
 
             weights = data.get_weight()
