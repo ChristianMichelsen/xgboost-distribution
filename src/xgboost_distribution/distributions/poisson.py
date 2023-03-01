@@ -81,7 +81,7 @@ class Poisson(base.BaseDistribution):
         if isinstance(quantiles, float):
             quantiles = [quantiles]
 
-        (mu,) = self.predict(transformed_params).mu
+        (mu,) = self.predict(transformed_params)
         preds = [poisson(mu=mu).ppf(q=q) for q in quantiles]
 
         if as_pandas and PANDAS_INSTALLED:
