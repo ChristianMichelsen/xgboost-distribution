@@ -1,9 +1,20 @@
 """Normal distribution
 """
+from collections import namedtuple
+
 import numpy as np
 from scipy.stats import norm
 
 from xgboost_distribution.distributions.base import BaseDistribution
+from xgboost_distribution.distributions.utils import MAX_EXPONENT, MIN_EXPONENT
+
+# Note: due to reparameterization, we need to ensure that the converted
+# variance, exp(2 * std), is within bounds of np.float32 arrays
+MIN_LOG_SCALE = MIN_EXPONENT / 2
+MAX_LOG_SCALE = MAX_EXPONENT / 2
+
+
+Params = namedtuple("Params", ("loc", "scale"))
 
 
 class Normal(BaseDistribution):
@@ -52,28 +63,27 @@ class Normal(BaseDistribution):
 
     @property
     def params(self):
-        return ("loc", "scale")
+        return Params._fields
 
     def gradient_and_hessian(self, y, params, natural_gradient=True):
         """Gradient and diagonal hessian"""
 
-        loc, log_scale = self._split_params(params)
+        loc, log_scale = self._safe_params(params)
         var = np.exp(2 * log_scale)
 
-        grad = np.zeros(shape=(len(y), 2))
+        grad = np.zeros(shape=(len(y), 2), dtype="float32")
         grad[:, 0] = (loc - y) / var
         grad[:, 1] = 1 - ((y - loc) ** 2) / var
 
         if natural_gradient:
-            fisher_matrix = np.zeros(shape=(len(y), 2, 2))
+            fisher_matrix = np.zeros(shape=(len(y), 2, 2), dtype="float32")
             fisher_matrix[:, 0, 0] = 1 / var
             fisher_matrix[:, 1, 1] = 2
 
             grad = np.linalg.solve(fisher_matrix, grad)
-
-            hess = np.ones(shape=(len(y), 2))  # we set the hessian constant
+            hess = np.ones(shape=(len(y), 2), dtype="float32")  # constant hessian
         else:
-            hess = np.zeros(shape=(len(y), 2))  # diagonal elements only
+            hess = np.zeros(shape=(len(y), 2), dtype="float32")  # diagonal elems only
             hess[:, 0] = 1 / var
             hess[:, 1] = 2 * ((y - loc) ** 2) / var
 
@@ -84,16 +94,15 @@ class Normal(BaseDistribution):
         return "NormalDistribution-NLL", -norm.logpdf(y, loc=loc, scale=scale)
 
     def predict(self, params):
-        loc, log_scale = self._split_params(params)
-        # TODO: do we need clipping for safety?
-        # log_scale = np.clip(log_scale, -100, 100)
+        loc, log_scale = self._safe_params(params)
         scale = np.exp(log_scale)
-
-        return self.Predictions(loc=loc, scale=scale)
+        return Params(loc=loc, scale=scale)
 
     def starting_params(self, y):
-        return np.mean(y), np.log(np.std(y))
+        return Params(loc=np.mean(y), scale=np.log(np.std(y)))
 
-    def _split_params(self, params):
-        """Return loc and log_scale from params"""
-        return params[:, 0], params[:, 1]
+    def _safe_params(self, params):
+        """Return safe loc and log_scale from params"""
+        loc = params[:, 0]
+        log_scale = np.clip(params[:, 1], a_min=MIN_LOG_SCALE, a_max=MAX_LOG_SCALE)
+        return loc, log_scale

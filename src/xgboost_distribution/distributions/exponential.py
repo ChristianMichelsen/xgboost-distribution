@@ -1,10 +1,14 @@
 """Exponential distribution
 """
+from collections import namedtuple
+
 import numpy as np
 from scipy.stats import expon
 
 from xgboost_distribution.distributions.base import BaseDistribution
-from xgboost_distribution.distributions.utils import check_all_ge_zero
+from xgboost_distribution.distributions.utils import check_all_ge_zero, safe_exp
+
+Params = namedtuple("Params", ("scale"))
 
 
 class Exponential(BaseDistribution):
@@ -30,7 +34,7 @@ class Exponential(BaseDistribution):
 
     @property
     def params(self):
-        return ("scale",)
+        return Params._fields
 
     def check_target(self, y):
         check_all_ge_zero(y)
@@ -40,14 +44,14 @@ class Exponential(BaseDistribution):
 
         (scale,) = self.predict(params)
 
-        grad = np.zeros(shape=(len(y), 1))
+        grad = np.zeros(shape=(len(y), 1), dtype="float32")
         grad[:, 0] = 1 - y / scale
 
         if natural_gradient:
-            fisher_matrix = np.ones(shape=(len(y), 1, 1))
+            fisher_matrix = np.ones(shape=(len(y), 1, 1), dtype="float32")
 
             grad = np.linalg.solve(fisher_matrix, grad)
-            hess = np.ones(shape=(len(y), 1))  # we set the hessian constant
+            hess = np.ones(shape=(len(y), 1), dtype="float32")  # constant hessian
         else:
             hess = -(grad - 1)
 
@@ -58,9 +62,8 @@ class Exponential(BaseDistribution):
         return "Exponential-NLL", -expon.logpdf(y, scale=scale)
 
     def predict(self, params):
-        log_scale = params  # params are shape (n,)
-        scale = np.exp(log_scale)
-        return self.Predictions(scale=scale)
+        scale = safe_exp(params)
+        return Params(scale=scale)
 
     def starting_params(self, y):
-        return (np.log(np.mean(y)),)
+        return Params(scale=np.log(np.mean(y)))
